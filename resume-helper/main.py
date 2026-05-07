@@ -1,139 +1,95 @@
-"""AI 简历优化助手 — DeepSeek API 垂直场景应用
-功能: 简历优化 / 岗位匹配 / 模拟面试
-启动: streamlit run main.py
+"""AI Resume Helper — FastAPI + DeepSeek
+启动: uvicorn main:app --host 127.0.0.1 --port 8850
 """
 import os, json
-import streamlit as st
+from fastapi import FastAPI, Form
+from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 
-st.set_page_config(page_title="AI 简历助手", page_icon="🎯")
-st.title("🎯 AI 简历优化助手 — 杭州 AI 岗位专属")
+app = FastAPI(title="AI Resume Helper")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 client = OpenAI(api_key=API_KEY, base_url="https://api.deepseek.com")
+SYSTEM = "你是杭州AI行业资深HR顾问。了解DeepSeek、阿里、字节等公司。问题简洁实用，给可操作建议。"
 
-SYSTEM = """你是杭州AI行业的资深HR兼职业顾问。你了解杭州AI产业生态
-（DeepSeek、阿里巴巴、字节跳动AI部门、AI创业公司等）。
-你擅长: 简历优化、岗位匹配、模拟面试。
-回答用简洁实用的语言，不说废话，直接给可操作的建议。"""
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    ui_path = os.path.join(os.path.dirname(__file__), "ui.html")
+    return open(ui_path, encoding="utf-8").read()
 
-def ask_ai(prompt, temperature=0.7):
+@app.post("/optimize")
+async def optimize(name: str = Form(""), target: str = Form(""), resume: str = Form("")):
+    prompt = f"""优化以下简历，目标岗位「{target}」（杭州）。
+要求: STAR法则重写经历、补充技能关键词、量化成果、500字内、添加技能/项目/证书板块。
+求职者: {name}
+原始简历: {resume}"""
+    return streaming_response(prompt)
+
+@app.post("/match")
+async def match(skills: str = Form("")):
+    prompt = f"""求职者技能: {skills}
+目标城市: 杭州。推荐3-5个岗位（名称+薪资+匹配度），推荐3家公司，技能补强建议，下一步行动。"""
+    return streaming_response(prompt)
+
+@app.post("/interview")
+async def interview(job: str = Form(""), question: str = Form("")):
+    if question:
+        prompt = f"求职者问: {question}\n以杭州AI行业面试官身份回答。"
+    else:
+        prompt = f"生成5道「{job}」面试题。每道标注考察点+评分标准+范例回答。考察实际能力而非背诵。"
+    return streaming_response(prompt)
+
+def streaming_response(prompt):
     resp = client.chat.completions.create(
         model="deepseek-chat",
-        messages=[{"role":"system","content":SYSTEM}, {"role":"user","content":prompt}],
-        temperature=temperature
+        messages=[{"role":"system","content":SYSTEM},{"role":"user","content":prompt}],
+        temperature=0.7, stream=True
     )
-    return resp.choices[0].message.content
+    def gen():
+        for chunk in resp:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+    return StreamingResponse(gen(), media_type="text/plain")
 
-# 三个 Tab
-tab1, tab2, tab3 = st.tabs(["📝 简历优化", "🎯 岗位匹配", "💬 模拟面试"])
+UI = """<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Resume Helper</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:linear-gradient(135deg,#0d1220,#1a1040,#0d1220);min-height:100vh;color:#d0d0e0}
+.hd{background:rgba(0,0,0,0.4);padding:16px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.08)}.hd h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#ef4444,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tabs{display:flex;gap:4px;padding:16px 24px 0;max-width:900px;margin:0 auto}
+.tab{padding:8px 20px;border-radius:10px 10px 0 0;border:1px solid rgba(255,255,255,0.08);border-bottom:none;background:rgba(255,255,255,0.02);color:#8080a0;cursor:pointer;font-size:13px;transition:.2s}.tab.sel{background:rgba(255,255,255,0.06);color:#e0e0f0;border-color:rgba(255,255,255,0.15)}
+.main{max-width:900px;margin:0 auto;padding:24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:0 0 16px 16px}
+.row{display:flex;gap:12px;margin-bottom:12px}
+.row input{flex:1;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#d0d0e0;font-size:13px;outline:none}.row input:focus{border-color:#ec4899}
+textarea{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#d0d0e0;font-size:13px;resize:vertical;min-height:120px;outline:none;font-family:inherit;margin-bottom:12px}textarea:focus{border-color:#ec4899}
+.btn{width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#f59e0b,#ef4444,#ec4899);color:#fff;cursor:pointer;font-size:14px;font-weight:600;transition:.2s}.btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(236,72,153,0.3)}.btn:disabled{opacity:0.5}
+.out{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-top:16px;line-height:1.7;white-space:pre-wrap;display:none;font-size:14px}
+</style></head><body>
+<div class="hd"><h1>AI Resume Helper</h1><span style="font-size:12px;color:#606080">Hangzhou AI Jobs</span></div>
+<div class="tabs"><div class="tab sel" onclick="switchTab(0)">Resume Optimize</div><div class="tab" onclick="switchTab(1)">Job Match</div><div class="tab" onclick="switchTab(2)">Mock Interview</div></div>
+<div class="main">
+<div id="tab0">
+<div class="row"><input id="name" placeholder="Your Name"><input id="target" placeholder="Target Job, e.g. AIGC Prompt Engineer"></div>
+<textarea id="resume" placeholder="Paste your resume here..."></textarea>
+<button class="btn" id="btn0" onclick="doPost('/optimize',{name:'name',target:'target',resume:'resume'},'out0','btn0')">Optimize Resume</button>
+<div class="out" id="out0"></div>
+</div>
+<div id="tab1" style="display:none">
+<textarea id="skills" placeholder="Your skills (one per line):&#10;Python&#10;Prompt Engineering&#10;FastAPI&#10;Video Editing..."></textarea>
+<button class="btn" id="btn1" onclick="doPost('/match',{skills:'skills'},'out1','btn1')">Find Matching Jobs</button>
+<div class="out" id="out1"></div>
+</div>
+<div id="tab2" style="display:none">
+<div class="row"><input id="job" placeholder="Job Title, e.g. AI Application Engineer"><input id="iq" placeholder="Or ask a question directly"></div>
+<button class="btn" id="btn2" onclick="doPost('/interview',{job:'job',question:'iq'},'out2','btn2')">Generate / Ask</button>
+<div class="out" id="out2"></div>
+</div>
+</div>
+<script>
+let curTab=0;
+function switchTab(i){curTab=i;for(let t=0;t<3;t++){document.getElementById('tab'+t).style.display=t===i?'block':'none';document.querySelectorAll('.tab')[t].classList.toggle('sel',t===i)}}
+async function doPost(url,fields,outId,btnId){let d=new FormData();for(let[k,id]of Object.entries(fields)){d.append(k,document.getElementById(id).value)}document.getElementById(btnId).disabled=true;let o=document.getElementById(outId);o.style.display='block';o.textContent='';let r=await fetch(url,{method:'POST',body:d});let t=await r.text();o.textContent=t;document.getElementById(btnId).disabled=false}
+</script></body></html>"""
 
-# === Tab 1: 简历优化 ===
-with tab1:
-    st.subheader("粘贴你的简历，AI 帮你优化")
-    col1, col2 = st.columns(2)
-    with col1:
-        name = st.text_input("姓名")
-        target_job = st.selectbox("目标岗位", [
-            "AI应用工程师", "AIGC提示词工程师", "AI视频生成师",
-            "AI产品助理", "AI客户成功", "AI数据分析师", "其他"
-        ])
-    with col2:
-        exp_years = st.selectbox("工作经验", ["应届/零经验", "1-2年", "3-5年", "5年以上"])
-        education = st.selectbox("学历", ["本科", "大专", "硕士", "博士"])
-
-    original = st.text_area("原始简历内容", height=200,
-        placeholder="粘贴你的简历文字...\n\n例如:\n2020年毕业于大连外国语大学软件工程\n熟悉Python基础，了解AI工具使用\n有小红书账号运营经验...")
-
-    if st.button("✨ 优化简历", type="primary"):
-        if not original:
-            st.warning("请先粘贴简历")
-        else:
-            prompt = f"""请优化以下简历，使其更适合投递杭州的「{target_job}」岗位。
-
-求职者背景: {name}，{education}，{exp_years}
-
-优化要求:
-1. 用 STAR 法则重写经历（情境-任务-行动-结果）
-2. 补充与 {target_job} 相关的技能关键词
-3. 量化成果（没有数据就合理估算）
-4. 控制在 500 字以内
-5. 去掉与目标岗位无关的内容
-6. 添加「技能」「项目经历」「证书」三个板块
-
-原始简历:
-{original}
-
-请输出优化后的完整简历:"""
-            with st.spinner("优化中..."):
-                result = ask_ai(prompt)
-                st.markdown("### 优化后简历")
-                st.markdown(result)
-                st.download_button("📥 下载优化简历", result, f"{name}_简历.md")
-
-# === Tab 2: 岗位匹配 ===
-with tab2:
-    st.subheader("输入你的技能，匹配杭州在招岗位")
-
-    skills = st.text_area("你的技能（一行一个）", height=120,
-        placeholder="Python\nPrompt Engineering\n剪映\n小红书运营\nAI工具使用(DeepSeek/Claude)\n基础前端(HTML/CSS)")
-
-    target_city = st.selectbox("目标城市", ["杭州", "杭州(可远程)", "不限"])
-
-    if st.button("🔍 匹配岗位", type="primary"):
-        if not skills:
-            st.warning("请输入技能")
-        else:
-            prompt = f"""求职者技能:
-{skills}
-
-目标城市: {target_city}
-
-请完成以下分析:
-1. 推荐 3-5 个最适合的杭州在招岗位（具体到岗位名称）
-2. 每个岗位说明: 薪资范围、核心要求、匹配度(百分比)
-3. 哪些技能需要补强？给出优先级排序
-4. 推荐 3 家杭州值得投递的公司
-5. 下一步行动建议"""
-            with st.spinner("分析中..."):
-                result = ask_ai(prompt)
-                st.markdown(result)
-
-# === Tab 3: 模拟面试 ===
-with tab3:
-    st.subheader("AI 模拟面试官")
-
-    job = st.selectbox("面试岗位", [
-        "AI应用工程师", "AIGC提示词工程师", "AI视频生成师",
-        "AI产品助理", "AI客户成功"
-    ])
-    level = st.select_slider("难度", ["初级", "中级", "高级"], value="初级")
-
-    if st.button("🎤 生成面试题", type="primary"):
-        prompt = f"""你是杭州一家AI公司的面试官，正在招聘「{job}」（{level}）。
-
-请生成 5 道面试题:
-1. 每道题标注考察点
-2. 题后附上评分标准
-3. 最后给一个范例回答
-
-题目应该考察实际动手能力，而非背诵知识点。"""
-        with st.spinner("出题中..."):
-            result = ask_ai(prompt, temperature=0.9)
-            st.markdown(result)
-
-    # 自由问答
-    st.divider()
-    st.caption("💬 也可以直接向面试官提问:")
-    q = st.text_input("你的问题", placeholder="例如: 我没有相关工作经验，面试怎么回答？", key="interview_q")
-    if q:
-        with st.spinner("..."):
-            st.markdown(ask_ai(f"求职者问: {q}\n请以杭州AI行业面试官的身份回答。"))
-
-st.sidebar.caption(f"🔑 API Key: {'已设置 ✅' if API_KEY else '❌ 未设置'}")
-st.sidebar.caption("💡 设置: export DEEPSEEK_API_KEY=sk-...")
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📁 项目信息")
-st.sidebar.markdown("- 技术栈: DeepSeek API + Streamlit")
-st.sidebar.markdown("- 场景: 杭州 AI 求职辅助")
-st.sidebar.markdown("- GitHub: [你的仓库链接]")
+if __name__ == "__main__":
+    import uvicorn; uvicorn.run(app, host="127.0.0.1", port=8850)

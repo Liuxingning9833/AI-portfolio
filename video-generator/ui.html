@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Video Generator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:#06060e;color:#c0c0d0;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 20%,rgba(99,200,150,0.05)0%,transparent 55%),radial-gradient(ellipse at 80% 60%,rgba(50,130,200,0.05)0%,transparent 55%);pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:20px}
+.hd{display:flex;align-items:center;justify-content:space-between;padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.06);flex-wrap:wrap;gap:10px}
+.hd h1{font-size:22px;font-weight:800;background:linear-gradient(135deg,#34d399,#3b82f6,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hd .badge{font-size:11px;padding:5px 12px;border-radius:20px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2);color:#34d399}
+.tabs{display:flex;gap:4px;margin:16px 0}
+.tab{padding:8px 20px;border-radius:10px 10px 0 0;border:1px solid rgba(255,255,255,0.06);border-bottom:none;background:rgba(255,255,255,0.02);color:#707080;cursor:pointer;font-size:13px;transition:.2s}.tab.sel{background:rgba(255,255,255,0.05);color:#d0d0e0;border-color:rgba(255,255,255,0.12)}
+.panel{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:0 16px 16px 16px;padding:24px}
+.row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.row input,.row select{flex:1;min-width:120px;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#d0d0e0;font-size:13px;outline:none}.row input:focus,.row select:focus{border-color:#34d399}
+.row select option{background:#1a1a2e;color:#d0d0e0}
+textarea{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#d0d0e0;font-size:13px;resize:vertical;min-height:80px;outline:none;font-family:inherit;margin-bottom:12px}textarea:focus{border-color:#34d399}
+.btn{width:100%;padding:12px;border-radius:12px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:.2s}
+.btn-primary{background:linear-gradient(135deg,#059669,#3b82f6);color:#fff}.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(5,150,105,0.25)}
+.btn-secondary{background:rgba(255,255,255,0.05);color:#9090a0;border:1px solid rgba(255,255,255,0.08)}
+.btn-sm{padding:8px 16px;width:auto;font-size:12px}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none!important}
+.result{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:18px;margin-top:14px;line-height:1.7;white-space:pre-wrap;display:none;font-size:13px;overflow-x:auto}
+.progress-bar{height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-top:12px;overflow:hidden}
+.progress-bar .fill{height:100%;background:linear-gradient(135deg,#34d399,#3b82f6);border-radius:3px;transition:width .3s;width:0%}
+.batch-status{display:flex;align-items:center;gap:8px;font-size:13px;color:#9090a0;margin-top:8px}
+.badge-sm{font-size:10px;padding:4px 10px;border-radius:12px;background:rgba(52,211,153,0.1);color:#34d399}
+.flex{display:flex;gap:8px;flex-wrap:wrap}
+.mt{margin-top:12px}
+</style></head><body>
+<div class="app">
+<div class="hd"><h1>AI Video Generator</h1><div class="badge">DeepSeek-V4</div></div>
+<div class="tabs"><div class="tab sel" onclick="switchTab(0)">单个生成</div><div class="tab" onclick="switchTab(1)">批量上传</div></div>
+
+<div class="panel" id="tab0">
+<div class="row"><input id="pname" placeholder="产品名称"><input id="pcount" type="number" value="1" min="1" max="5" style="max-width:100px" title="Number of videos"><select id="pplat"><option>Douyin</option><option>Xiaohongshu</option><option>Kuaishou</option></select></div>
+<textarea id="pdesc" placeholder="产品描述： features, selling points, target audience..."></textarea>
+<button class="btn btn-primary" id="btnGen" onclick="generate()">生成视频脚本</button>
+<div class="result" id="result1"></div>
+</div>
+
+<div class="panel" id="tab1" style="display:none">
+<h3 style="font-size:14px;color:#9090a0;margin-bottom:8px">CSV格式： product_name, description</h3>
+<input type="file" id="csvFile" accept=".csv" style="margin-bottom:10px;color:#808090"><br>
+<button class="btn btn-primary" onclick="startBatch()">开始批量生成</button>
+<div class="progress-bar mt" id="progWrap" style="display:none"><div class="fill" id="progFill"></div></div>
+<div class="batch-status mt" id="batchStatus"></div>
+<div id="batchList" style="margin-top:12px"></div>
+<button class="btn btn-secondary mt" id="btnExport" style="display:none" onclick="exportResults()">导出全部脚本</button>
+</div>
+</div>
+<script>
+let curTab=0,currentJobId=null;
+function switchTab(i){curTab=i;document.getElementById('tab0').style.display=i===0?'block':'none';document.getElementById('tab1').style.display=i===1?'block':'none';document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('sel',j===i))}
+
+async function generate(){
+  let btn=document.getElementById('btnGen'),r=document.getElementById('result1');
+  btn.disabled=true;btn.textContent='生成中...';r.style.display='block';r.textContent='AI 正在生成视频脚本...';
+  let fd=new FormData();
+  fd.append('product_name',document.getElementById('pname').value||'示例产品');
+  fd.append('product_desc',document.getElementById('pdesc').value||'无描述');
+  fd.append('platform',document.getElementById('pplat').value);
+  fd.append('count',document.getElementById('pcount').value||1);
+  try{let resp=await fetch('/generate',{method:'POST',body:fd});let j=await resp.json();r.textContent=j.result||'无结果'}catch(e){r.textContent='请求失败: '+e.message}
+  btn.disabled=false;btn.textContent='生成视频脚本';
+}
+
+async function startBatch(){
+  let f=document.getElementById('csvFile').files[0];if(!f)return alert('请选择CSV文件');
+  let fd=new FormData();fd.append('file',f);
+  let resp=await fetch('/batch',{method:'POST',body:fd});let j=await resp.json();
+  if(j.error){alert(j.error);return}
+  currentJobId=j.job_id;
+  document.getElementById('progWrap').style.display='block';
+  document.getElementById('batchStatus').innerHTML='0 / '+j.total+' 个产品';
+  document.getElementById('batchList').innerHTML='';
+  document.getElementById('btnExport').style.display='none';
+  // Process each product
+  for(let i=0;i<j.products.length;i++){
+    let p=j.products[i];
+    document.getElementById('batchStatus').innerHTML=(i+1)+' / '+j.total+' 生成中: '+p.name+'...';
+    let fd2=new FormData();
+    fd2.append('product_name',p.name);
+    fd2.append('product_desc',p.desc);
+    fd2.append('platform','Douyin');
+    fd2.append('count',1);
+    try{
+      let r2=await fetch('/generate',{method:'POST',body:fd2});
+      let j2=await r2.json();
+      await fetch('/batch/'+currentJobId+'/result',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'product_name='+encodeURIComponent(p.name)+'&result='+encodeURIComponent(j2.result||'')});
+    }catch(e){console.error(e)}
+    let pct=((i+1)/j.total*100);document.getElementById('progFill').style.width=pct+'%';
+  }
+  document.getElementById('batchStatus').innerHTML='完成! '+j.total+' 个脚本已生成.';
+  document.getElementById('btnExport').style.display='block';
+  loadBatchResults();
+}
+
+async function loadBatchResults(){
+  if(!currentJobId)return;
+  let resp=await fetch('/batch/'+currentJobId);let j=await resp.json();
+  if(!j.results)return;
+  document.getElementById('batchList').innerHTML=j.results.map((r,i)=>`<details style="margin:6px 0;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px"><summary style="cursor:pointer;color:#34d399;font-size:13px">${r.product}</summary><pre style="white-space:pre-wrap;font-size:12px;line-height:1.6;margin-top:8px;color:#b0b0c0">${r.script}</pre></details>`).join('');
+}
+function exportResults(){if(currentJobId)window.open('/export/'+currentJobId)}
+</script></body></html>

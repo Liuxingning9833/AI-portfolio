@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RAG Knowledge Base</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',-apple-system,sans-serif;background:#080812;color:#c8c8d8;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(99,102,241,0.06)0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(139,92,246,0.04)0%,transparent 60%);pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:0 20px}
+.hd{display:flex;align-items:center;justify-content:space-between;padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.06);flex-wrap:wrap;gap:10px}
+.hd h1{font-size:22px;font-weight:800;background:linear-gradient(135deg,#818cf8,#c084fc,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+.hd .badge{font-size:11px;padding:5px 12px;border-radius:20px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2);color:#818cf8;text-decoration:none;white-space:nowrap}
+.layout{display:flex;gap:24px;padding:24px 0}
+@media(max-width:768px){.layout{flex-direction:column}.side{width:100%!important}}
+.side{width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:12px}
+.side .box{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:18px}
+.side h3{font-size:14px;color:#a0a0b8;margin-bottom:10px}
+.side input[type=file]{width:100%;font-size:12px;color:#888;margin-bottom:8px}
+.side input[type=file]::file-selector-button{padding:6px 14px;border-radius:8px;border:1px solid rgba(99,102,241,0.3);background:rgba(99,102,241,0.1);color:#a5b4fc;cursor:pointer;font-size:12px;margin-right:8px}
+.btn{width:100%;padding:10px 20px;border-radius:12px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,0.3)}
+.btn-secondary{background:rgba(255,255,255,0.05);color:#a0a0b8;border:1px solid rgba(255,255,255,0.08)}.btn-secondary:hover{background:rgba(255,255,255,0.08)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+.info{font-size:11px;color:#606080;text-align:center}.info.ok{color:#34d399}
+.main-area{flex:1;display:flex;flex-direction:column;gap:16px}
+.search-box{display:flex;gap:10px}
+.search-box input{flex:1;padding:12px 18px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#d0d0e0;font-size:14px;outline:none;transition:.3s}
+.search-box input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,0.1)}
+.search-box button{padding:12px 24px;white-space:nowrap;width:auto}
+.result{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:20px;line-height:1.75;display:none;animation:fadeIn .3s;overflow-wrap:break-word;word-break:break-word}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.result .label{font-size:11px;color:#818cf8;letter-spacing:1px;margin-bottom:8px}
+.result .answer-text{font-size:15px;color:#e0e0f0;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;max-width:100%}
+.sources{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06)}
+.sources .src-label{font-size:11px;color:#606080;margin-bottom:6px}
+.source-item{font-size:12px;color:#707090;padding:6px 0}.source-item .src-name{color:#818cf8}
+.source-item .src-text{color:#808098;word-break:break-word;display:block}
+.status{font-size:12px;color:#34d399;display:flex;align-items:center;gap:6px}
+.status .dot{width:6px;height:6px;border-radius:50%;background:#34d399}
+</style></head><body>
+<div class="app">
+<div class="hd">
+<h1>RAG Knowledge Base</h1>
+<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+<span class="badge">DeepSeek-V4</span>
+<span class="badge">ChromaDB</span>
+<div class="status"><div class="dot"></div><span id="statusText">就绪</span></div>
+</div>
+</div>
+<div class="layout">
+<div class="side">
+<div class="box">
+<h3>上传文档</h3>
+<input type="file" id="files" multiple accept=".pdf,.txt,.md">
+<button class="btn btn-primary" id="upBtn" onclick="upload()">构建知识库</button>
+<div class="info" id="upInfo">PDF / TXT / Markdown</div>
+</div>
+<div class="box">
+<h3>System</h3>
+<div style="font-size:12px;color:#707090;line-height:1.8">
+<div>Model: DeepSeek-V4</div>
+<div>Method: Keyword + LLM</div>
+<div id="docCount" style="color:#818cf8">无数据</div>
+</div>
+</div>
+</div>
+<div class="main-area">
+<div class="search-box">
+<input placeholder="输入问题..." id="q" onkeydown="if(event.key==='Enter')ask()">
+<button class="btn btn-primary" id="askBtn" onclick="ask()">查询</button>
+</div>
+<div class="result" id="result">
+<div class="label">回答</div>
+<div class="answer-text" id="ansText"></div>
+<div class="sources">
+<div class="src-label">参考来源</div>
+<div id="srcs"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+async function upload(){let f=document.getElementById('files').files;if(!f.length)return;let d=new FormData();for(let x of f)d.append('files',x);let btn=document.getElementById('upBtn');btn.disabled=true;btn.textContent='处理中...';try{let r=await fetch('/upload',{method:'POST',body:d});if(!r.ok){alert('上传文档 failed');btn.disabled=false;btn.textContent='构建知识库';return}let j=await r.json();document.getElementById('upInfo').innerHTML=j.documents+' files, '+j.chunks+' chunks';document.getElementById('upInfo').className='info ok';document.getElementById('docCount').textContent=j.documents+' files loaded';document.getElementById('statusText').textContent='就绪';btn.textContent='重新构建'}catch(e){alert('Error: '+e.message)}btn.disabled=false}
+async function ask(){let q=document.getElementById('q').value.trim();if(!q)return;let btn=document.getElementById('askBtn');btn.disabled=true;btn.textContent='处理中...';let r=document.getElementById('result');try{let resp=await fetch('/query',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'q='+encodeURIComponent(q)});if(!resp.ok){let e=await resp.json();r.style.display='block';document.getElementById('ansText').textContent='Error: '+(e.detail||'');btn.disabled=false;btn.textContent='查询';return}let j=await resp.json();document.getElementById('ansText').textContent=j.answer||'(No answer)';document.getElementById('srcs').innerHTML=j.sources.map(s=>'<div class="source-item"><span class="src-name">'+s.source+'</span><span class="src-text">'+s.preview+'...</span></div>').join('');r.style.display='block'}catch(e){r.style.display='block';document.getElementById('ansText').textContent='Error: '+e.message}btn.disabled=false;btn.textContent='查询'}
+</script></body></html>

@@ -46,7 +46,7 @@ uvicorn main:app --host 0.0.0.0 --port 8800
 cd rag-knowledge
 pip install -r requirements.txt
 export DEEPSEEK_API_KEY=sk-your-key
-streamlit run main.py
+uvicorn main:app --host 127.0.0.1 --port 8851
 ```
 
 ---
@@ -65,7 +65,7 @@ streamlit run main.py
 cd resume-helper
 pip install -r requirements.txt
 export DEEPSEEK_API_KEY=sk-your-key
-streamlit run main.py
+uvicorn main:app --host 127.0.0.1 --port 8851
 ```
 
 ---

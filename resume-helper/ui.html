@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Resume Helper</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',-apple-system,sans-serif;background:linear-gradient(135deg,#0d1220,#1a1040,#0d1220);min-height:100vh;color:#d0d0e0}
+.hd{background:rgba(0,0,0,0.4);padding:16px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.hd h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,#f59e0b,#ef4444,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tabs{display:flex;gap:4px;padding:16px 24px 0;max-width:900px;margin:0 auto}
+.tab{padding:8px 20px;border-radius:10px 10px 0 0;border:1px solid rgba(255,255,255,0.08);border-bottom:none;background:rgba(255,255,255,0.02);color:#8080a0;cursor:pointer;font-size:13px;transition:.2s}.tab.sel{background:rgba(255,255,255,0.06);color:#e0e0f0;border-color:rgba(255,255,255,0.15)}
+.main{max-width:900px;margin:0 auto;padding:24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:0 0 16px 16px}
+.row{display:flex;gap:12px;margin-bottom:12px}
+.row input{flex:1;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#d0d0e0;font-size:13px;outline:none}.row input:focus{border-color:#ec4899}
+textarea{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#d0d0e0;font-size:13px;resize:vertical;min-height:120px;outline:none;font-family:inherit;margin-bottom:12px}textarea:focus{border-color:#ec4899}
+.btn{width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#f59e0b,#ef4444,#ec4899);color:#fff;cursor:pointer;font-size:14px;font-weight:600;transition:.2s}.btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(236,72,153,0.3)}.btn:disabled{opacity:0.5}
+.out{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-top:16px;line-height:1.7;white-space:pre-wrap;display:none;font-size:14px}
+</style></head><body>
+<div class="hd"><h1>AI 简历助手</h1><span style="font-size:12px;color:#606080">杭州 AI 岗位求职</span></div>
+<div class="tabs"><div class="tab sel" onclick="switchTab(0)">简历优化</div><div class="tab" onclick="switchTab(1)">岗位匹配</div><div class="tab" onclick="switchTab(2)">模拟面试</div></div>
+<div class="main">
+<div id="tab0">
+<div class="row"><input id="name" placeholder="姓名"><input id="target" placeholder="目标岗位，如 AIGC 提示词工程师"></div>
+<textarea id="resume" placeholder="在此粘贴简历内容..."></textarea>
+<button class="btn" id="btn0" onclick="doPost('/optimize',{name:'name',target:'target',resume:'resume'},'out0','btn0')">优化简历</button>
+<div class="out" id="out0"></div>
+</div>
+<div id="tab1" style="display:none">
+<textarea id="skills" placeholder="你的技能（一行一个）：&#10;Python&#10;Prompt Engineering&#10;FastAPI&#10;视频剪辑..."></textarea>
+<button class="btn" id="btn1" onclick="doPost('/match',{skills:'skills'},'out1','btn1')">匹配岗位</button>
+<div class="out" id="out1"></div>
+</div>
+<div id="tab2" style="display:none">
+<div class="row"><input id="job" placeholder="面试岗位，如 AI 应用工程师"><input id="iq" placeholder="或直接向面试官提问"></div>
+<button class="btn" id="btn2" onclick="doPost('/interview',{job:'job',question:'iq'},'out2','btn2')">出题 / 提问</button>
+<div class="out" id="out2"></div>
+</div>
+</div>
+<script>
+let curTab=0;
+function switchTab(i){curTab=i;for(let t=0;t<3;t++){document.getElementById('tab'+t).style.display=t===i?'block':'none';document.querySelectorAll('.tab')[t].classList.toggle('sel',t===i)}}
+async function doPost(url,fields,outId,btnId){let d=new FormData();for(let[k,id]of Object.entries(fields)){d.append(k,document.getElementById(id).value)}document.getElementById(btnId).disabled=true;let o=document.getElementById(outId);o.style.display='block';o.textContent='处理中...';let r=await fetch(url,{method:'POST',body:d});let t=await r.text();o.textContent=t;document.getElementById(btnId).disabled=false}
+</script></body></html>
