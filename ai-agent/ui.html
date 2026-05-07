@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Agent</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:#0a0a14;color:#c8c8d8;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(139,92,246,0.06)0%,transparent 60%);pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;max-width:800px;margin:0 auto;padding:20px}
+.hd{display:flex;align-items:center;justify-content:space-between;padding:20px 0;border-bottom:1px solid rgba(255,255,255,0.06);flex-wrap:wrap;gap:10px}
+.hd h1{font-size:22px;font-weight:800;background:linear-gradient(135deg,#8b5cf6,#ec4899,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.badges{display:flex;gap:10px;flex-wrap:wrap}
+.badge{font-size:11px;padding:5px 12px;border-radius:20px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);color:#a78bfa}
+.search-box{display:flex;gap:10px;padding:20px 0}
+.search-box input{flex:1;padding:14px 20px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#d0d0e0;font-size:15px;outline:none;transition:.3s}
+.search-box input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,0.15)}
+.search-box button{padding:14px 28px;border-radius:16px;border:none;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;cursor:pointer;font-size:14px;font-weight:600;transition:.2s;white-space:nowrap}
+.search-box button:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(124,58,237,0.3)}
+.search-box button:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+.thinking{display:none;padding:16px;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.1);border-radius:14px;margin-bottom:16px}
+.thinking .label{font-size:11px;color:#a78bfa;letter-spacing:1px;margin-bottom:10px}
+.step{display:flex;gap:10px;padding:8px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.04);animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.step .tool-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.step .tool-info{flex:1;color:#a0a0b8}
+.step .tool-name{color:#c4b5fd;font-weight:600}
+.step .tool-result{color:#808090;margin-top:2px;word-break:break-word}
+.answer{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:20px;line-height:1.8;display:none;animation:fadeIn .3s}
+.answer .ans-label{font-size:11px;color:#ec4899;letter-spacing:1px;margin-bottom:8px}
+.answer .ans-text{font-size:15px;color:#e0e0f0;white-space:pre-wrap}
+.hint{font-size:12px;color:#606080;text-align:center;margin-top:20px;line-height:1.6}
+.tool-icon.search{background:rgba(59,130,246,0.15);color:#60a5fa}
+.tool-icon.calc{background:rgba(245,158,11,0.15);color:#fbbf24}
+.tool-icon.weather{background:rgba(16,185,129,0.15);color:#34d399}
+.tool-icon.code{background:rgba(236,72,153,0.15);color:#f472b6}
+.tool-icon.time{background:rgba(139,92,246,0.15);color:#a78bfa}
+</style></head><body>
+<div class="app">
+<div class="hd">
+<h1>AI Agent</h1>
+<div class="badges">
+<span class="badge">DeepSeek-V4</span>
+<span class="badge">Function Calling</span>
+<span class="badge">Tools: Fetch + Calc + Weather + Code + Video</span>
+</div>
+</div>
+<div class="search-box">
+<input placeholder="试试问: 杭州今天天气怎么样？然后算一下 12345*6789..." id="msg" onkeydown="event.key==='Enter'&&ask()">
+<button id="btn" onclick="ask()">发送</button>
+</div>
+<div class="thinking" id="thinking"><div class="label">Thinking Process</div></div>
+<div class="answer" id="answer"><div class="ans-label">Answer</div><div class="ans-text" id="ansText"></div></div>
+<div class="hint">
+Try:<br>
+"What is the weather in Hangzhou? Calculate 456*789 for me."<br>
+"Fetch a URL and summarize it, then write a Python script to count word frequency in a paragraph."<br>
+"What is 2 to the power of 20? Also what time is it now?"
+</div>
+</div>
+<script>
+const icons={fetch_url:'search',calculator:'calc',get_weather:'weather',run_python:'code',video_summary:'search',get_time:'time'};
+const names={web_search:'Web Search',calculator:'Calculator',get_weather:'Weather',run_python:'Python',get_time:'Time'};
+async function ask(){
+  let m=document.getElementById('msg').value.trim();if(!m)return;
+  let btn=document.getElementById('btn'),t=document.getElementById('thinking'),a=document.getElementById('answer');
+  btn.disabled=true;btn.textContent='Thinking...';
+  t.style.display='block';t.innerHTML='<div class="label">Thinking Process</div>';
+  a.style.display='none';
+  try{
+    let resp=await fetch('/agent',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'message='+encodeURIComponent(m)});
+    let j=await resp.json();
+    // Show reasoning steps
+    for(let s of j.reasoning||[]){
+      let d=document.createElement('div');d.className='step';
+      d.innerHTML='<div class="tool-icon '+icons[s.tool]+'">'+(s.tool==='fetch_url'?'F':s.tool==='calculator'?'C':s.tool==='get_weather'?'W':s.tool==='run_python'?'P':s.tool==='video_summary'?'V':'T')+'</div><div class="tool-info"><div class="tool-name">'+names[s.tool]+'</div><div class="tool-result">'+s.result+'</div></div>';
+      t.appendChild(d);
+    }
+    // Show answer
+    a.style.display='block';document.getElementById('ansText').textContent=j.answer||'No answer';
+  }catch(e){a.style.display='block';document.getElementById('ansText').textContent='Error: '+e.message}
+  btn.disabled=false;btn.textContent='Send';
+}
+</script></body></html>
