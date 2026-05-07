@@ -1,6 +1,6 @@
 # AI Portfolio — 个人 AI 项目作品集
 
-> 作品集，包含四个完整项目。
+> 作品集，包含五个完整项目。
 
 ---
 
@@ -51,6 +51,19 @@ uvicorn main:app --host 127.0.0.1 --port 端口号
 
 ---
 
+## 项目五：AI Agent 智能体
+
+**技术栈**: FastAPI + DeepSeek JSON Function Calling + 六工具
+
+**功能**: AI 自主判断需求，调用工具完成任务
+- 网页抓取、B站视频信息提取
+- 数学计算、天气查询、Python 代码执行
+- 时间查询
+
+`http://127.0.0.1:8863`
+
+---
+
 ## 技术能力
 
 - **API 开发**: FastAPI 构建 RESTful AI 服务
@@ -59,6 +72,7 @@ uvicorn main:app --host 127.0.0.1 --port 端口号
 - **Prompt Engineering**: System Prompt 设计，破限词，结构化输出
 - **全栈开发**: 独立完成前后端，HTML/CSS/JS + Python
 - **AI 视频**: LLM 批量生成分镜脚本和 AI 画面提示词
+- **AI Agent**: Function Calling，自主调用工具完成任务
 
 ## 依赖安装
 
