@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Meta Prompting</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:#050510;color:#c8c8e0;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(168,85,247,0.08)0%,transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(59,130,246,0.06)0%,transparent 50%);pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:24px 20px}
+
+.hd{text-align:center;padding:30px 0 10px}
+.hd h1{font-size:36px;font-weight:900;background:linear-gradient(135deg,#a855f7,#6366f1,#3b82f6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px}
+.hd p{font-size:14px;color:#707090;margin-top:8px}
+
+.modes{display:flex;gap:8px;justify-content:center;margin:20px 0;flex-wrap:wrap}
+.mode{padding:10px 24px;border-radius:24px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#9090a8;cursor:pointer;font-size:13px;transition:.2s;white-space:nowrap}
+.mode:hover{border-color:rgba(168,85,247,0.3);color:#c0b0e0}
+.mode.sel{background:rgba(168,85,247,0.12);border-color:#a855f7;color:#c4b5fd;font-weight:600}
+
+.main-card{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:24px;backdrop-filter:blur(10px)}
+.main-card textarea{width:100%;padding:16px 20px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#d0d0e8;font-size:14px;resize:vertical;min-height:120px;outline:none;font-family:inherit;line-height:1.7;transition:.3s}
+.main-card textarea:focus{border-color:#a855f7;box-shadow:0 0 0 3px rgba(168,85,247,0.1)}
+.main-card textarea::placeholder{color:rgba(200,200,220,0.3)}
+
+.opts{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.opts select{padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#c0c0d8;font-size:12px;outline:none;cursor:pointer}
+.opts select:focus{border-color:#a855f7}
+.opts select option{background:#1a1a2e;color:#c0c0d8}
+
+.btn{display:block;width:100%;padding:14px;margin-top:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#7c3aed,#3b82f6);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:.3s;letter-spacing:1px}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(124,58,237,0.35)}
+.btn:disabled{opacity:0.4;transform:none;cursor:not-allowed}
+
+.result{display:none;margin-top:20px;animation:fadeUp .4s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+.score-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.score-badge{font-size:36px;font-weight:900;background:linear-gradient(135deg,#a855f7,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.score-label{font-size:13px;color:#707090}
+.score-stars{display:flex;gap:2px;margin-left:auto}
+.star{font-size:20px;color:#334}
+
+.opt-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:20px;margin-bottom:12px}
+.opt-card .label{font-size:11px;color:#a855f7;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
+.opt-card .content{font-size:14px;color:#e0e0f0;line-height:1.8;white-space:pre-wrap}
+.opt-card .improve-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;font-size:13px;color:#b0b0c8}
+.opt-card .improve-item::before{content:'▸';color:#a855f7;flex-shrink:0}
+
+.copy-btn{padding:8px 18px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#a0a0c0;cursor:pointer;font-size:12px;transition:.2s}
+.copy-btn:hover{background:rgba(168,85,247,0.1);border-color:#a855f7;color:#c4b5fd}
+
+.coach-tip{background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.12);border-radius:12px;padding:12px 16px;margin-top:12px;font-size:13px;color:#b0a0d0;display:flex;align-items:flex-start;gap:8px}
+.coach-tip::before{content:'💡';flex-shrink:0}
+
+.examples{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.example{font-size:11px;padding:6px 14px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);color:#808098;cursor:pointer;transition:.2s}
+.example:hover{background:rgba(168,85,247,0.08);color:#b0a0d0}
+</style></head><body>
+<div class="app">
+<div class="hd">
+<h1>Meta Prompting</h1>
+<p>AI Prompt 教练 · 让大模型帮你写出完美提示词</p>
+</div>
+
+<div class="modes">
+<div class="mode sel" onclick="setMode('optimize')">✨ 提示词优化</div>
+<div class="mode" onclick="setMode('analyze')">🔍 诊断分析</div>
+<div class="mode" onclick="setMode('template')">📋 模板生成</div>
+</div>
+
+<div class="main-card">
+<textarea id="promptInput" placeholder="输入你的原始提示词，或描述你想要什么...&#10;&#10;例如: 写一篇关于AI发展的文章&#10;例如: 帮我设计一个Logo的描述&#10;例如: 解释量子计算的原理"></textarea>
+
+<div class="examples"><span style="font-size:11px;color:#505068">试试:</span>
+<span class="example" onclick="fill('写一篇关于杭州AI产业发展的分析报告')">杭州AI产业报告</span>
+<span class="example" onclick="fill('帮我设计一个宠物咖啡店的品牌Logo描述')">宠物咖啡店Logo</span>
+<span class="example" onclick="fill('用小学生能听懂的方式解释什么是黑洞')">解释黑洞</span>
+</div>
+
+<div class="opts">
+<select id="audience"><option>通用</option><option>程序员</option><option>设计师</option><option>学生</option><option>商务人士</option></select>
+<select id="style"><option>详细</option><option>简洁</option><option>创意</option><option>专业</option><option>通俗</option></select>
+</div>
+
+<button class="btn" id="btnOptimize" onclick="optimize()">🚀 开始优化</button></div>
+
+<div class="result" id="result">
+<div class="score-row"><span class="score-badge" id="scoreText">8.5</span><span class="score-label">/ 10 分</span><div class="score-stars" id="stars"></div></div>
+
+<div class="opt-card"><div class="label">📝 优化后 Prompt</div><div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="copy-btn" onclick="copyOpt()">📋 复制</button></div><div class="content" id="optText"></div></div>
+
+<div class="opt-card"><div class="label">📊 改进要点</div><div id="improvements"></div></div>
+
+<div class="coach-tip" id="coachTip"></div>
+</div>
+</div>
+
+<script>
+let curMode='optimize';
+function setMode(m){
+  curMode=m;document.querySelectorAll('.mode').forEach((e,i)=>{e.classList.toggle('sel',['optimize','analyze','template'][i]===m)});
+  let hints={optimize:'输入原始提示词，AI帮你优化成专业版',analyze:'输入提示词，AI帮你诊断问题并改善',template:'描述需求，AI为你生成专业Prompt模板'};
+  document.getElementById('promptInput').placeholder=hints[m];
+}
+function fill(t){document.getElementById('promptInput').value=t}
+
+async function optimize(){
+  let prompt=document.getElementById('promptInput').value.trim();
+  if(!prompt)return;
+  let btn=document.getElementById('btnOptimize');btn.disabled=true;btn.textContent='AI 教练优化中...';
+  let r=document.getElementById('result');r.style.display='none';
+  try{
+    let fd=new FormData();
+    fd.append('prompt',prompt);fd.append('mode',curMode);
+    fd.append('audience',document.getElementById('audience').value);
+    fd.append('style',document.getElementById('style').value);
+    let resp=await fetch('/optimize',{method:'POST',body:fd});
+    let j=await resp.json();
+    let score=j.score||7;
+    document.getElementById('scoreText').textContent=score.toFixed(1);
+    document.getElementById('stars').innerHTML=Array.from({length:10},(_,i)=>`<span class="star" style="color:${i<Math.round(score)?'#f59e0b':'#333'}">★</span>`).join('');
+    document.getElementById('optText').textContent=j.optimized||'No result';
+    let imps=j.improvements||[];
+    document.getElementById('improvements').innerHTML=imps.map(s=>`<div class="improve-item">${s}</div>`).join('');
+    document.getElementById('coachTip').innerHTML=j.tips||'💡 试试不同的模式和参数，获得更好的结果';
+    r.style.display='block';r.scrollIntoView({behavior:'smooth'});
+  }catch(e){alert('请求失败: '+e.message)}
+  btn.disabled=false;btn.textContent='🚀 开始优化';
+}
+function copyOpt(){
+  let t=document.getElementById('optText').textContent;
+  navigator.clipboard.writeText(t).then(()=>{
+    let b=document.querySelector('.copy-btn');b.textContent='✅ 已复制';setTimeout(()=>b.textContent='📋 复制',1500);
+  });
+}
+</script></body></html>
